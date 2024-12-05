@@ -1,0 +1,166 @@
+1. How many ConfigMaps exist in the environment?
+    kubectl get configmaps --all-namespaces
+
+2. Create a new ConfigMap
+  kubectl create configmap webapp-config-map --from-literal=APP_COLOR=darkblue
+3. Create a webapp-color POD with the nginx image using the ConfigMap
+    1. Create a YAML file named webapp-color-pod.yaml:
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: webapp-color
+      spec:
+        containers:
+        - name: nginx
+          image: nginx
+          env:
+          - name: APP_COLOR
+            valueFrom:
+              configMapKeyRef:
+                name: webapp-config-map
+                key: APP_COLOR
+    2. Apply the YAML:
+        kubectl apply -f webapp-color-pod.yaml
+4. How many Secrets exist in the system?
+  kubectl get secrets --all-namespaces
+5. How many secrets are defined in the default-token secret?
+  kubectl describe secret default-token-<suffix> -n default
+6. Create a db-pod with mysql:5.7 image and check its status
+    kubectl run db-pod --image=mysql:5.7 --restart=Never
+    kubectl get pods db-pod
+7. Why is the db-pod status not ready?
+      The MySQL container needs environment variables like MYSQL_ROOT_PASSWORD. Without them, the pod will not start.
+8. Create a Secret named db-secret
+    kubectl create secret generic db-secret \
+      --from-literal=MYSQL_DATABASE=sql01 \
+      --from-literal=MYSQL_USER=user1 \
+      --from-literal=MYSQL_PASSWORD=password \
+      --from-literal=MYSQL_ROOT_PASSWORD=password123
+9. Configure db-pod to load environment variables from the Secret
+Update the YAML:
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: db-pod
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:5.7
+        envFrom:
+        - secretRef:
+            name: db-secret
+    
+    Apply the updated YAML:
+    
+    kubectl delete pod db-pod
+    kubectl apply -f db-pod.yaml
+
+10. Create a multi-container Pod
+  1.Create a YAML file named multi-container-pod.yaml:
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: yellow
+    spec:
+      containers:
+      - name: lemon
+        image: busybox
+        command: ["sh", "-c", "while true; do sleep 3600; done"]
+      - name: gold
+        image: redis
+  2.Apply the YAML:
+    kubectl apply -f multi-container-pod.yaml
+11. Create a Pod with an InitContainer
+      1.Create a YAML file named red-pod.yaml:
+        apiVersion: v1
+        kind: Pod
+        metadata:
+          name: red
+        spec:
+          initContainers:
+          - name: init-container
+            image: busybox
+            command: ["sh", "-c", "sleep 20"]
+          containers:
+          - name: redis
+            image: redis
+
+    2.Apply the YAML:
+      kubectl apply -f red-pod.yaml
+12. Create a Pod to print environment variables
+    1.Create a YAML file named print-envars-greeting.yaml:
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: print-envars-greeting
+      spec:
+        containers:
+        - name: print-env-container
+          image: bash
+          command: ["sh", "-c", "echo $(GREETING) $(COMPANY) $(GROUP)"]
+          env:
+          - name: GREETING
+            value: "Welcome to"
+          - name: COMPANY
+            value: "DevOps"
+          - name: GROUP
+            value: "Industries"
+    2.Apply the YAML and check logs:
+        kubectl apply -f print-envars-greeting.yaml
+        kubectl logs -f print-envars-greeting
+13. Where is the default kubeconfig file located?
+      The default kubeconfig file is located at:   ~/.kube/config
+14. How many clusters are defined in the default kubeconfig file?
+    kubectl config view -o jsonpath='{.clusters[*].name}' | wc -w
+15. What is the user configured in the current context?
+    kubectl config view -o jsonpath='{.contexts[?(@.name=="current-context")].context.user}'
+16. Create a Persistent Volume
+    1.Create a YAML file named pv-log.yaml:
+        apiVersion: v1
+        kind: PersistentVolume
+        metadata:
+          name: pv-log
+        spec:
+          capacity:
+            storage: 100Mi
+          accessModes:
+          - ReadWriteMany
+          hostPath:
+            path: /pv/log
+
+    2.Apply the YAML:
+        kubectl apply -f pv-log.yaml
+17. Create a Persistent Volume Claim
+    1. Create a YAML file named pvc-log.yaml
+          apiVersion: v1
+          kind: PersistentVolumeClaim
+          metadata:
+            name: claim-log-1
+          spec:
+            resources:
+              requests:
+                storage: 50Mi
+            accessModes:
+            - ReadWriteMany
+    2.Apply the YAML:
+      kubectl apply -f pvc-log.yaml
+18. Create a webapp Pod using the Persistent Volume Claim
+    1.Create a YAML file named webapp-pod.yaml:
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: webapp
+      spec:
+        containers:
+        - name: nginx
+          image: nginx
+          volumeMounts:
+          - name: log-volume
+            mountPath: /var/log/nginx
+        volumes:
+        - name: log-volume
+          persistentVolumeClaim:
+            claimName: claim-log-1
+
+    2.Apply the YAML:
+        kubectl apply -f webapp-pod.yaml
